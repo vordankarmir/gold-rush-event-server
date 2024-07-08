@@ -5,7 +5,6 @@ import {
   Post,
   UseGuards,
   Request,
-  Body,
   Response,
 } from '@nestjs/common';
 import { EventService } from './event.service';
@@ -20,16 +19,6 @@ export class EventController {
   @Get('/events/:id')
   async findOne(@Param('id') id: string) {
     return this.eventService.findOne(id);
-  }
-
-  @Post('/events/:id/report-score')
-  async createBucketOrReportScore(
-    @Param('id') eventId: string,
-    @Request() req: Req,
-    @Body('score') score: number,
-  ) {
-    const userId = req.user['_id'];
-    return this.eventService.createBucketOrReportScore(userId, eventId, score);
   }
 
   @Get('/ongoing-event')

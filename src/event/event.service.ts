@@ -10,7 +10,6 @@ import { Model } from 'mongoose';
 import { EVENT_STATE } from './types';
 import { UserService } from '../user/user.service';
 import { UserBucket } from '../../schemas/user-bucket.schema';
-import { BucketService } from '../bucket/bucket.service';
 import { Bucket } from '../../schemas/bucket.schema';
 
 @Injectable()
@@ -19,7 +18,6 @@ export class EventService {
     @InjectModel(Event.name) private eventModel: Model<Event>,
     @InjectModel(UserBucket.name) private userBucketModel: Model<UserBucket>,
     @InjectModel(Bucket.name) private bucketModel: Model<Bucket>,
-    private bucketService: BucketService,
     private userService: UserService,
   ) {}
 
@@ -122,86 +120,6 @@ export class EventService {
         },
       ),
     ]);
-  }
-
-  async createBucketOrReportScore(userId: string, eventId, score: number) {
-    const [event, user] = await Promise.all([
-      this.findOne(eventId),
-      this.userService.findOne(userId),
-    ]);
-
-    const userTypeCount = `${user.type.toLowerCase()}Count`;
-
-    if (event.state === EVENT_STATE.ENDED) {
-      throw new ConflictException('Event is ended');
-    }
-
-    const buckets = await this.getUserBucketData(event._id);
-
-    // If there are no buckets for the ongoing event yet, create one and save the user score
-    if (!buckets || buckets.length === 0) {
-      const createdBucket = await this.bucketService.create({
-        eventId: event._id,
-        [userTypeCount]: 1,
-      });
-
-      const createUserBucket = new this.userBucketModel({
-        userId,
-        bucketId: createdBucket._id,
-        goldNuggets: score,
-        nuggetsClaimed: false,
-      });
-
-      return createUserBucket.save();
-    }
-
-    const bucketUserIsIn = buckets.find((b) =>
-      b.userBuckets.some((uB) => uB.userId === userId),
-    );
-
-    // update score if user already is in bucket
-    if (bucketUserIsIn) {
-      const userBucket = bucketUserIsIn.userBuckets.find(
-        (uB) => uB.userId === userId,
-      );
-      const updatedBucket = await this.userBucketModel.findByIdAndUpdate(
-        {
-          _id: userBucket._id,
-        },
-        {
-          goldNuggets: score,
-        },
-        {
-          returnOriginal: false,
-        },
-      );
-      return updatedBucket;
-    }
-
-    let bucketToJoin = buckets.find(
-      (b) => b[userTypeCount] < parseInt(process.env[`${user.type}_LIMIT`], 10),
-    );
-
-    if (!bucketToJoin) {
-      bucketToJoin = await this.bucketService.create({
-        eventId: event._id,
-        [userTypeCount]: 1,
-      });
-    } else {
-      const count = bucketToJoin[userTypeCount];
-      this.bucketService.update(bucketToJoin._id, {
-        [userTypeCount]: count + 1,
-      });
-    }
-
-    const createUserBucket = new this.userBucketModel({
-      userId,
-      bucketId: bucketToJoin._id,
-      goldNuggets: score,
-      nuggetsClaimed: false,
-    });
-
-    return createUserBucket.save();
   }
 
   async getUserBucketData(eventId: string) {

@@ -1,11 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventService } from '../event/event.service';
 import { EVENT_STATE } from '../event/types';
+import { RedisService } from '../cache/redis.service';
+import { BucketService } from '../bucket/bucket.service';
 
 @Injectable()
 export class CronJobService {
-  constructor(private eventService: EventService) {}
+  constructor(
+    @Inject(EventService) private readonly eventService: EventService,
+    @Inject(RedisService) private readonly redisService: RedisService,
+    @Inject(BucketService) private readonly bucketService: BucketService,
+  ) {}
 
   private readonly logger = new Logger(CronJobService.name);
 
@@ -34,5 +40,15 @@ export class CronJobService {
       this.logger.log(`Event ${event._id} ended`);
     }
     return;
+  }
+
+  async setLeaderboard(bucketId: string) {
+    try {
+      const leaderboard =
+        await this.bucketService.collectLeaderboardData(bucketId);
+      await this.redisService.saveLeaderboard(leaderboard);
+    } catch (e) {
+      this.logger.log(e);
+    }
   }
 }

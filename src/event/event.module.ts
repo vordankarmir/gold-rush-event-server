@@ -5,7 +5,6 @@ import { EventSchema } from '../../schemas/event.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserModule } from '../user/user.module';
 import { UserBucket, UserBucketSchema } from '../../schemas/user-bucket.schema';
-import { BucketModule } from '../bucket/bucket.module';
 import { Bucket, BucketSchema } from '../../schemas/bucket.schema';
 
 @Module({
@@ -16,7 +15,6 @@ import { Bucket, BucketSchema } from '../../schemas/bucket.schema';
       { name: Bucket.name, schema: BucketSchema },
     ]),
     UserModule,
-    BucketModule,
   ],
   controllers: [EventController],
   providers: [EventService],

@@ -7,9 +7,12 @@ import { LoggerMiddleware } from '../middlewares/logger.middleware';
 import { UserModule } from './user/user.module';
 import { EventModule } from './event/event.module';
 import { BucketModule } from './bucket/bucket.module';
-import { ScheduleModule } from '@nestjs/schedule';
 import { CronJobModule } from './schedules/cron-job.module';
 import { AuthModule } from './auth/auth.module';
+import { redisProvider } from './cache/redis.provider';
+import { CacheModule } from '@nestjs/cache-manager';
+import { ScoreModule } from './score/score.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -20,7 +23,6 @@ import { AuthModule } from './auth/auth.module';
         : '.env',
     }),
     ScheduleModule.forRoot(),
-    CronJobModule,
     MongooseModule.forRoot(process.env.DATABASE_URI, {
       dbName: process.env.DATABASE_NAME,
     }),
@@ -28,6 +30,11 @@ import { AuthModule } from './auth/auth.module';
     EventModule,
     BucketModule,
     AuthModule,
+    CacheModule.register({
+      redisProvider,
+    }),
+    CronJobModule,
+    ScoreModule,
   ],
   controllers: [AppController],
   providers: [AppService],
