@@ -5,7 +5,7 @@ import { EVENT_STATE } from '../src/event/types';
 
 export type EventDocument = HydratedDocument<Event>;
 
-@Schema()
+@Schema({ timestamps: true })
 export class Event {
   @Prop({
     type: String,
@@ -23,12 +23,12 @@ export class Event {
   @Prop({
     required: true,
   })
-  startDate: number;
+  startDate: Date;
 
   @Prop({
     required: true,
   })
-  endDate: number;
+  endDate: Date;
 }
 
 export const EventSchema = SchemaFactory.createForClass(Event);

@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export type UserBucketDocument = HydratedDocument<UserBucket>;
 
-@Schema()
+@Schema({ timestamps: true })
 export class UserBucket {
   @Prop({
     type: String,

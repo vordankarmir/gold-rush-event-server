@@ -7,6 +7,9 @@ import { LoggerMiddleware } from '../middlewares/logger.middleware';
 import { UserModule } from './user/user.module';
 import { EventModule } from './event/event.module';
 import { BucketModule } from './bucket/bucket.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CronJobModule } from './schedules/cron-job.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -16,13 +19,15 @@ import { BucketModule } from './bucket/bucket.module';
         ? `.${process.env.NODE_ENV}.env`
         : '.env',
     }),
-    // ThrottlerModule.forRoot([{ limit: 10, ttl: 60 }]),
+    ScheduleModule.forRoot(),
+    CronJobModule,
     MongooseModule.forRoot(process.env.DATABASE_URI, {
       dbName: process.env.DATABASE_NAME,
     }),
     UserModule,
     EventModule,
     BucketModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

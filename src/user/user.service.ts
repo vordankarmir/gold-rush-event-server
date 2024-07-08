@@ -10,7 +10,11 @@ export class UserService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const createdUser = new this.userModel(createUserDto);
+    const createdUser = new this.userModel({
+      ...createUserDto,
+      rank: 0,
+      silverNuggets: 0,
+    });
     return createdUser.save();
   }
 
@@ -30,10 +34,6 @@ export class UserService {
 
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.userModel.findOne({ email });
-
-    if (user == null) {
-      throw new NotFoundException('User not found');
-    }
 
     return user;
   }

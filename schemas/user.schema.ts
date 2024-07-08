@@ -6,7 +6,7 @@ import { USER_TYPE } from '../src/user/types';
 
 export type UserDocument = HydratedDocument<User>;
 
-@Schema()
+@Schema({ timestamps: true })
 export class User {
   @Prop({
     type: String,

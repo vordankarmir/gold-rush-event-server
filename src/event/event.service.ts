@@ -1,26 +1,246 @@
-import { Injectable } from '@nestjs/common';
-import { CreateEventDto } from './dto/create-event.dto';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { Event } from '../../schemas/event.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { EVENT_STATE } from './types';
+import { UserService } from '../user/user.service';
+import { UserBucket } from '../../schemas/user-bucket.schema';
+import { BucketService } from '../bucket/bucket.service';
+import { Bucket } from '../../schemas/bucket.schema';
 
 @Injectable()
 export class EventService {
-  create(createEventDto: CreateEventDto) {
-    return 'This action adds a new event';
+  constructor(
+    @InjectModel(Event.name) private eventModel: Model<Event>,
+    @InjectModel(UserBucket.name) private userBucketModel: Model<UserBucket>,
+    @InjectModel(Bucket.name) private bucketModel: Model<Bucket>,
+    private bucketService: BucketService,
+    private userService: UserService,
+  ) {}
+
+  async create() {
+    const currentDate = new Date();
+
+    const eventModel = new this.eventModel({
+      startDate: Date.now(),
+      endDate: currentDate.setDate(
+        currentDate.getMinutes() + parseInt(process.env.EVENT_DURATION, 10),
+      ),
+      state: EVENT_STATE.ONGOING,
+    });
+
+    return eventModel.save();
   }
 
-  findAll() {
-    return `This action returns all event`;
+  async findOne(id: string) {
+    const event = await this.eventModel.findById(id);
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    return event;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} event`;
+  async findOngoingEvent(): Promise<Event | null> {
+    return this.eventModel
+      .findOne({ state: EVENT_STATE.ONGOING })
+      .select(['_id', 'startDate', 'endDate', 'state'])
+      .exec();
   }
 
-  update(id: number, updateEventDto: UpdateEventDto) {
-    return `This action updates a #${id} event`;
+  async update(id: string, updateEventDto: UpdateEventDto) {
+    await this.findOne(id);
+
+    const updatedEvent = await this.eventModel.findByIdAndUpdate(
+      {
+        _id: id,
+      },
+      updateEventDto,
+      {
+        returnOriginal: false,
+      },
+    );
+
+    return updatedEvent;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} event`;
+  async claimRewards(userId: string, eventId: string) {
+    const [user, event] = await Promise.all([
+      this.userService.findOne(userId),
+      this.findOne(eventId),
+    ]);
+
+    if (event.state === EVENT_STATE.ONGOING) {
+      throw new ConflictException("Cant't claim rewards");
+    }
+
+    const [userBucket] = await this.bucketModel
+      .aggregate([
+        {
+          $match: {
+            eventId: {
+              $eq: eventId,
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'userbuckets',
+            localField: '_id',
+            foreignField: 'bucketId',
+            as: 'userBucket',
+            pipeline: [{ $match: { userId: { $eq: userId } } }],
+          },
+        },
+        { $unwind: '$userBucket' },
+        {
+          $project: {
+            _id: '$userBucket._id',
+          },
+        },
+      ])
+      .exec();
+
+    const reward =
+      user.silverNuggets + parseInt(process.env.REWARD_AMOUNT, 10) - user.rank;
+
+    await Promise.all([
+      this.userService.update(userId, {
+        silverNuggets: reward,
+      }),
+      this.userBucketModel.findByIdAndUpdate(
+        { _id: userBucket._id },
+        { nuggetsClaimed: true },
+        {
+          returnOriginal: false,
+        },
+      ),
+    ]);
+  }
+
+  async createBucketOrReportScore(userId: string, eventId, score: number) {
+    const [event, user] = await Promise.all([
+      this.findOne(eventId),
+      this.userService.findOne(userId),
+    ]);
+
+    const userTypeCount = `${user.type.toLowerCase()}Count`;
+
+    if (event.state === EVENT_STATE.ENDED) {
+      throw new ConflictException('Event is ended');
+    }
+
+    const buckets = await this.getUserBucketData(event._id);
+
+    // If there are no buckets for the ongoing event yet, create one and save the user score
+    if (!buckets || buckets.length === 0) {
+      const createdBucket = await this.bucketService.create({
+        eventId: event._id,
+        [userTypeCount]: 1,
+      });
+
+      const createUserBucket = new this.userBucketModel({
+        userId,
+        bucketId: createdBucket._id,
+        goldNuggets: score,
+        nuggetsClaimed: false,
+      });
+
+      return createUserBucket.save();
+    }
+
+    const bucketUserIsIn = buckets.find((b) =>
+      b.userBuckets.some((uB) => uB.userId === userId),
+    );
+
+    // update score if user already is in bucket
+    if (bucketUserIsIn) {
+      const userBucket = bucketUserIsIn.userBuckets.find(
+        (uB) => uB.userId === userId,
+      );
+      const updatedBucket = await this.userBucketModel.findByIdAndUpdate(
+        {
+          _id: userBucket._id,
+        },
+        {
+          goldNuggets: score,
+        },
+        {
+          returnOriginal: false,
+        },
+      );
+      return updatedBucket;
+    }
+
+    let bucketToJoin = buckets.find(
+      (b) => b[userTypeCount] < parseInt(process.env[`${user.type}_LIMIT`], 10),
+    );
+
+    if (!bucketToJoin) {
+      bucketToJoin = await this.bucketService.create({
+        eventId: event._id,
+        [userTypeCount]: 1,
+      });
+    } else {
+      const count = bucketToJoin[userTypeCount];
+      this.bucketService.update(bucketToJoin._id, {
+        [userTypeCount]: count + 1,
+      });
+    }
+
+    const createUserBucket = new this.userBucketModel({
+      userId,
+      bucketId: bucketToJoin._id,
+      goldNuggets: score,
+      nuggetsClaimed: false,
+    });
+
+    return createUserBucket.save();
+  }
+
+  async getUserBucketData(eventId: string) {
+    const agg = await this.bucketModel
+      .aggregate([
+        {
+          $match: {
+            eventId: {
+              $eq: eventId,
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'userbuckets',
+            localField: '_id',
+            foreignField: 'bucketId',
+            as: 'userBucket',
+          },
+        },
+        { $unwind: '$userBucket' },
+        {
+          $project: {
+            _id: true,
+            whaleCount: true,
+            dolphinCount: true,
+            fishCount: true,
+            userBuckets: [
+              {
+                _id: '$userBucket._id',
+                userId: '$userBucket.userId',
+                goldNuggets: '$userBucket.goldNuggets',
+              },
+            ],
+          },
+        },
+      ])
+      .exec();
+
+    return agg;
   }
 }

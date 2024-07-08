@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export type BucketDocument = HydratedDocument<Bucket>;
 
-@Schema()
+@Schema({ timestamps: true })
 export class Bucket {
   @Prop({
     type: String,
@@ -18,6 +18,21 @@ export class Bucket {
     required: true,
   })
   eventId: string;
+
+  @Prop({
+    required: false,
+  })
+  whaleCount: number;
+
+  @Prop({
+    required: false,
+  })
+  dolphinCount: number;
+
+  @Prop({
+    required: false,
+  })
+  fishCount: number;
 }
 
 export const BucketSchema = SchemaFactory.createForClass(Bucket);

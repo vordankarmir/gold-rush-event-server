@@ -1,7 +1,9 @@
-export class SignUpDto {
-  readonly firstName: string;
+import { USER_TYPE } from '../../user/types';
 
-  readonly lastName: string;
+export class SignUpDto {
+  readonly nickname: string;
+
+  readonly type: USER_TYPE;
 
   readonly email: string;
 
