@@ -6,10 +6,12 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
+import { RedisModule } from '../cache/redis.module';
 
 @Module({
   imports: [
     UserModule,
+    RedisModule,
     PassportModule,
     JwtModule.register({
       secretOrPrivateKey: process.env.JWT_KEY,

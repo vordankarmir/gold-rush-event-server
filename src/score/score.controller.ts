@@ -11,7 +11,7 @@ import { JwtGuard } from '../../common/guards/jwt.guard';
 import { Request as Req } from 'express';
 import { ScoreService } from './score.service';
 import { JoiValidationPipe } from '../../common/pipes/validation.pipe';
-import Joi from 'joi';
+import * as Joi from 'joi';
 import { CreateScoreDto, createScoreSchema } from './dto/create-score.dto';
 
 @UseGuards(JwtGuard)

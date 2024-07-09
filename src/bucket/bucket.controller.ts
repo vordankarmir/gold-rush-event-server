@@ -1,7 +1,7 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { BucketService } from './bucket.service';
 import { JwtGuard } from '../../common/guards/jwt.guard';
-import Joi from 'joi';
+import * as Joi from 'joi';
 import { JoiValidationPipe } from '../../common/pipes/validation.pipe';
 
 @UseGuards(JwtGuard)

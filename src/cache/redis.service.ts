@@ -22,4 +22,21 @@ export class RedisService {
       fifteenSecondsInMilliseconds,
     );
   }
+
+  async saveAccesToken(userId: string, accessToken: string) {
+    await this.redisRepository.set(
+      userId,
+      accessToken,
+      parseInt(process.env.JWT_EXPIRATION, 10),
+    );
+  }
+
+  async getAccessToken(userId: string) {
+    const accessToken = await this.redisRepository.get(userId);
+    return JSON.parse(accessToken);
+  }
+
+  async deleteAccessToken(userId: string) {
+    await this.deleteAccessToken(userId);
+  }
 }

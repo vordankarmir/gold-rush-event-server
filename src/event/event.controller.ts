@@ -11,7 +11,7 @@ import { EventService } from './event.service';
 import { JwtGuard } from '../../common/guards/jwt.guard';
 import { Request as Req, Response as Res } from 'express';
 import { JoiValidationPipe } from '../../common/pipes/validation.pipe';
-import Joi from 'joi';
+import * as Joi from 'joi';
 
 @UseGuards(JwtGuard)
 @Controller('')

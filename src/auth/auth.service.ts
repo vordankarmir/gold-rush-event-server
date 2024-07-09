@@ -11,6 +11,7 @@ import { CreateUserDto } from '../user/dto/create-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { JWTTokens } from './types/jwt';
+import { RedisService } from '../cache/redis.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private redisService: RedisService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -51,15 +53,21 @@ export class AuthService {
     });
 
     const tokens = await this.getTokens(user._id, user.email);
-    await this.updateRefreshToken(user._id, tokens.refreshToken);
+    await Promise.all([
+      this.updateRefreshToken(user._id, tokens.refreshToken),
+      this.redisService.saveAccesToken(user._id, tokens.accessToken),
+    ]);
     return tokens;
   }
 
   async signIn(email: string, pass: string): Promise<JWTTokens> {
     const user = await this.validateUser(email, pass);
 
-    const tokens = await this.getTokens(user.id, user.email);
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    const tokens = await this.getTokens(user._id, user.email);
+    await Promise.all([
+      this.updateRefreshToken(user._id, tokens.refreshToken),
+      this.redisService.saveAccesToken(user._id, tokens.accessToken),
+    ]);
     return tokens;
   }
 
@@ -101,7 +109,10 @@ export class AuthService {
   }
 
   async logout(userId: string) {
-    return this.userService.update(userId, { refreshToken: null });
+    return Promise.all([
+      this.userService.update(userId, { refreshToken: null }),
+      this.redisService.deleteAccessToken(userId),
+    ]);
   }
 
   async refreshTokens(userId: string, refreshToken: string) {
@@ -121,7 +132,10 @@ export class AuthService {
     }
 
     const tokens = await this.getTokens(user._id, user.email);
-    await this.updateRefreshToken(user._id, tokens.refreshToken);
+    await Promise.all([
+      this.updateRefreshToken(user._id, tokens.refreshToken),
+      this.redisService.saveAccesToken(user._id, tokens.accessToken),
+    ]);
     return tokens;
   }
 }

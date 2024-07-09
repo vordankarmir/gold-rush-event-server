@@ -4,10 +4,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { User } from '../../user/entities/user.entity';
 import { UserService } from '../../user/user.service';
 import { JWTPayload } from '../types/jwt';
+import { RedisService } from '../../cache/redis.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private userService: UserService) {
+  constructor(
+    private userService: UserService,
+    private redisService: RedisService,
+  ) {
     super({
       usernameField: 'email',
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -17,6 +21,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(jwtPayload: JWTPayload): Promise<User> {
+    const userId = jwtPayload.sub;
+
+    const cachedAccessToken = await this.redisService.getAccessToken(userId);
+
+    if (cachedAccessToken) return;
+
     const user = await this.userService.findOne(jwtPayload.sub);
 
     if (!user || user.email !== jwtPayload.email) {

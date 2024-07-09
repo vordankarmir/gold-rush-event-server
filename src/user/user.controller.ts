@@ -11,7 +11,7 @@ import { UserService } from './user.service';
 import { JwtGuard } from '../../common/guards/jwt.guard';
 import { JoiValidationPipe } from '../../common/pipes/validation.pipe';
 import { UpdateUserDto, updateUserDTOSchema } from './dto/update-user.dto';
-import Joi from 'joi';
+import * as Joi from 'joi';
 
 @UseGuards(JwtGuard)
 @Controller('users')
