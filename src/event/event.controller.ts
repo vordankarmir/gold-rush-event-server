@@ -10,6 +10,8 @@ import {
 import { EventService } from './event.service';
 import { JwtGuard } from '../../common/guards/jwt.guard';
 import { Request as Req, Response as Res } from 'express';
+import { JoiValidationPipe } from '../../common/pipes/validation.pipe';
+import Joi from 'joi';
 
 @UseGuards(JwtGuard)
 @Controller('')
@@ -17,7 +19,9 @@ export class EventController {
   constructor(private readonly eventService: EventService) {}
 
   @Get('/events/:id')
-  async findOne(@Param('id') id: string) {
+  async findOne(
+    @Param('id', new JoiValidationPipe(Joi.string().uuid())) id: string,
+  ) {
     return this.eventService.findOne(id);
   }
 
@@ -28,7 +32,7 @@ export class EventController {
 
   @Post('/events/:id/claim-rewards')
   async claimRewards(
-    @Param('id') eventId: string,
+    @Param('id', new JoiValidationPipe(Joi.string().uuid())) eventId: string,
     @Request() req: Req,
     @Response() res: Res,
   ) {
